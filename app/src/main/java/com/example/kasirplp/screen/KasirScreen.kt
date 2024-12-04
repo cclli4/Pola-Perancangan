@@ -3,12 +3,10 @@ package com.example.kasirplp.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -23,8 +21,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.text.TextStyle
 import com.example.kasirplp.command.TambahBarangCommand
 import com.example.kasirplp.factory.BarangFactory
+import com.example.kasirplp.helper.CurrencyUtils
 import com.example.kasirplp.models.Barang
 import com.example.kasirplp.observer.KasirObservable
+import com.example.kasirplp.screen.components.CetakStrukDialog
+import com.example.kasirplp.screen.components.ErrorDialog
+import com.example.kasirplp.screen.components.HapusBarangDialog
+import com.example.kasirplp.screen.components.TambahBarangDialog
 import com.example.kasirplp.session.KasirSession
 
 @Composable
@@ -44,9 +47,9 @@ fun KasirScreen() {
     var barangData by remember {
         mutableStateOf(
             listOf(
-                barangFactory.createBarang("Smartphone", 5000000.0, "Elektronik"),
-                barangFactory.createBarang("Laptop", 15000000.0, "Elektronik"),
-                barangFactory.createBarang("Nasi Goreng", 20000.0, "Makanan"),
+                barangFactory.createBarang("Buku", 5000.0, "Alat Tulis"),
+                barangFactory.createBarang("Penggaris", 3000.0, "Alat Tulis"),
+                barangFactory.createBarang("Skirt", 250000.0, "Pakaian"),
                 barangFactory.createBarang("T-Shirt", 150000.0, "Pakaian")
             )
         )
@@ -88,7 +91,7 @@ fun KasirScreen() {
     ) {
             Text(
                 text = "Aplikasi Kasir",
-                color = Color.Blue,
+                color = Color(0xFF9DB8F1),
                 style = TextStyle(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
@@ -108,13 +111,8 @@ fun KasirScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         // Tombol Edit
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            Button(onClick = { isEditing = !isEditing }) {
-                Text(if (isEditing) "Batal Edit" else "Edit")
-            }
+        EditButton(isEditing = isEditing) {
+            isEditing = !isEditing
         }
     }
         Spacer(modifier = Modifier.height(16.dp))
@@ -158,7 +156,7 @@ fun KasirScreen() {
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Rp ${barang.harga}",
+                                text = CurrencyUtils.formatRupiah(barang.harga),
                                 style = TextStyle(fontSize = 14.sp, color = Color.Gray)
                             )
                         }
@@ -177,6 +175,10 @@ fun KasirScreen() {
                                     // Tampilkan konfirmasi penghapusan
                                     barangToDelete = barang
                                     showDeleteConfirmationDialog = true
+                                    // Kurangi jumlah barang menjadi 0 sebelum menampilkan konfirmasi
+                                    KasirSession.barangMap[barang] = 0
+                                    KasirSession.totalHarga -= barang.harga
+                                    observable.notifyObservers()
                                 }
                             }
                         ) {
@@ -194,10 +196,10 @@ fun KasirScreen() {
 
                         IconButton(
                             onClick = {
-                                // Tambah jumlah barang
-                                val currentQty = KasirSession.barangMap[barang] ?: 0
-                                KasirSession.barangMap[barang] = currentQty + 1
-                                KasirSession.totalHarga += barang.harga
+                                // Panggil Tambah barang command
+                                val tambahBarangCommand = TambahBarangCommand(barang)
+                                tambahBarangCommand.execute()
+
                                 observable.notifyObservers()
                             }
                         ) {
@@ -216,7 +218,12 @@ fun KasirScreen() {
         // Buttons for Adding and Deleting Barang
         if (isEditing && selectedBarangToDelete.isNotEmpty()) {
             Button(
-                onClick = { showDeleteConfirmationDialog = true },
+                onClick = {
+                    if (selectedBarangToDelete.isNotEmpty()){
+                        barangToDelete = selectedBarangToDelete.first()
+                        showDeleteConfirmationDialog = true
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Hapus Barang yang Dipilih")
@@ -243,7 +250,7 @@ fun KasirScreen() {
                 text = "Total Harga:",
                 style = TextStyle(fontWeight = FontWeight.Bold)
             )
-            Text(text = "Rp $transaksiTotal")
+            Text(text = CurrencyUtils.formatRupiah(transaksiTotal))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -255,8 +262,9 @@ fun KasirScreen() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth()) {
-            barangMap.forEach { (barang, quantity) ->
-                Text(text = "$quantity x ${barang.nama} - Rp ${barang.harga * quantity}")
+
+            barangMap.filter { it.value > 0 }.forEach { (barang, quantity) ->
+                Text(text = "$quantity x ${barang.nama} - ${CurrencyUtils.formatRupiah(barang.harga * quantity)}")
             }
         }
 
@@ -292,130 +300,84 @@ fun KasirScreen() {
             }
         }
 
-        // Dialogs (Tambah Barang, Error, Cetak Struk, Konfirmasi Hapus)
+        // Cetak struk dialog
         if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text(text = "Struk Transaksi") },
-                text = { Text(text = strukContent) },
-                confirmButton = {
-                    Button(onClick = { showDialog = false }) {
-                        Text("Tutup")
-                    }
-                }
+            CetakStrukDialog(
+                strukContent = strukContent,
+                onDismiss = { showDialog = false }
             )
         }
 
+        //Tambah barang dialog
         if (showAddBarangDialog) {
-            AlertDialog(
-                onDismissRequest = { showAddBarangDialog = false },
-                title = { Text(text = "Tambah Barang Baru") },
-                text = {
-                    Column {
-                        TextField(
-                            value = newBarangNama,
-                            onValueChange = { newBarangNama = it },
-                            label = { Text("Nama Barang") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextField(
-                            value = newBarangHarga,
-                            onValueChange = { newBarangHarga = it },
-                            label = { Text("Harga Barang") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextField(
-                            value = newBarangKategori,
-                            onValueChange = { newBarangKategori = it },
-                            label = { Text("Kategori Barang") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+            TambahBarangDialog(
+                newBarangNama = newBarangNama,
+                newBarangHarga = newBarangHarga,
+                newBarangKategori = newBarangKategori,
+                onNamaChange = { newBarangNama = it },
+                onHargaChange = { newBarangHarga = it },
+                onKategoriChange = { newBarangKategori = it },
+                onBarangAdded = { barangBaru ->
+                    // Tambahkan barang ke barangData
+                    barangData = barangData.toMutableList().apply { add(barangBaru) }
+
+                    // Reset input setelah menambahkan barang
+                    newBarangNama = ""
+                    newBarangHarga = ""
+                    newBarangKategori = ""
+
+                    showAddBarangDialog = false
                 },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val harga = newBarangHarga.toDoubleOrNull()
-                            if (newBarangNama.isEmpty()) {
-                                errorMessage = "Nama barang tidak boleh kosong."
-                                showErrorDialog = true
-                            } else if (harga == null) {
-                                errorMessage = "Harga harus berupa angka."
-                                showErrorDialog = true
-                            } else if (newBarangKategori.isEmpty()) {
-                                errorMessage = "Kategori barang tidak boleh kosong."
-                                showErrorDialog = true
-                            } else {
-                                // Buat Barang baru
-                                val newBarang = Barang(newBarangNama, harga, newBarangKategori)
-
-                                // Gunakan TambahBarangCommand
-                                TambahBarangCommand(newBarang).execute()
-
-                                // Update UI
-                                barangData = barangData + newBarang
-                                observable.notifyObservers()
-
-                                // Reset input
-                                newBarangNama = ""
-                                newBarangHarga = ""
-                                newBarangKategori = ""
-                                showAddBarangDialog = false
-                            }
-                        }
-                    ) {
-                        Text("Tambah")
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { showAddBarangDialog = false }) {
-                        Text("Batal")
-                    }
+                onDismiss = { showAddBarangDialog = false },
+                onError = { message ->
+                    errorMessage = message
+                    showErrorDialog = true
                 }
             )
         }
 
-        if (showDeleteConfirmationDialog && barangToDelete != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmationDialog = false },
-                title = { Text(text = "Hapus Barang") },
-                text = { Text("Apakah Anda yakin ingin menghapus barang '${barangToDelete?.nama}' dari transaksi?") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            barangToDelete?.let {
-                                // Hapus barang dari transaksi
-                                KasirSession.totalHarga -= it.harga * (KasirSession.barangMap[it] ?: 0)
-                                KasirSession.barangMap.remove(it)
-                                barangToDelete = null
-                                showDeleteConfirmationDialog = false
-                                observable.notifyObservers()
-                            }
-                        }
-                    ) {
-                        Text("Ya")
+        if (showDeleteConfirmationDialog && selectedBarangToDelete.isNotEmpty()) {
+            HapusBarangDialog(
+                barangList = selectedBarangToDelete,
+                onDeleteConfirm = {
+                    selectedBarangToDelete.forEach{barang ->
+                        KasirSession.totalHarga -= barang.harga * (KasirSession.barangMap[barang] ?: 0)
+                        KasirSession.barangMap.remove(barang)
                     }
+
+                    barangData = barangData.filterNot { it in selectedBarangToDelete }
+
+                    selectedBarangToDelete.clear()
+
+                    showDeleteConfirmationDialog = false
+                    observable.notifyObservers()
                 },
-                dismissButton = {
-                    Button(onClick = { showDeleteConfirmationDialog = false }) {
-                        Text("Tidak")
-                    }
+
+                onDismiss = {
+                    showDeleteConfirmationDialog = false
                 }
             )
         }
 
+        //Menampilkan pesan kesalahan
         if (showErrorDialog) {
-            AlertDialog(
-                onDismissRequest = { showErrorDialog = false },
-                text = { Text(text = errorMessage) },
-                confirmButton = {
-                    Button(onClick = { showErrorDialog = false }) {
-                        Text("Tutup")
-                    }
-                }
+            ErrorDialog(
+                errorMessage = errorMessage,
+                onDismiss = {showErrorDialog = false}
             )
         }
     }
 }
+
+@Composable
+fun EditButton(isEditing: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        Button(onClick = onClick) {
+            Text(if (isEditing) "Batal Edit" else "Edit")
+        }
+    }
+}
+

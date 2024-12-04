@@ -1,5 +1,6 @@
 package com.example.kasirplp.command
 
+import com.example.kasirplp.helper.CurrencyUtils
 import com.example.kasirplp.models.Barang
 
 class CetakStrukCommand(
@@ -12,13 +13,12 @@ class CetakStrukCommand(
 
         barangMap.forEach { (barang, qty) ->
             val totalPerBarang = qty * barang.harga
-            strBuilder.append("${qty}x ${barang.nama} - Rp ${totalPerBarang}\n")
+            strBuilder.append("${qty} x ${barang.nama} - Rp ${CurrencyUtils.formatRupiah(totalPerBarang)}\n")
         }
 
         strBuilder.append("===================\n")
-        strBuilder.append("Total Harga: Rp $transaksiTotal\n")
+        strBuilder.append("Total Harga: ${CurrencyUtils.formatRupiah(transaksiTotal)}\n")
 
         return strBuilder.toString()
     }
 }
-
