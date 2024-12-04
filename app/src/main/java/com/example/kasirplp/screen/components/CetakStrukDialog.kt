@@ -21,4 +21,3 @@ fun CetakStrukDialog(
         }
     )
 }
-//coba

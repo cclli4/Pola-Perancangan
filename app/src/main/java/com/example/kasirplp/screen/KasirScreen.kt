@@ -85,10 +85,10 @@ fun KasirScreen() {
             .padding(16.dp)
     ) {
         Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 30.dp)
-    ) {
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 30.dp)
+        ) {
             Text(
                 text = "Aplikasi Kasir",
                 color = Color(0xFF9DB8F1),
@@ -101,20 +101,20 @@ fun KasirScreen() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color(0xFF6200EE))
-        )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Color(0xFF6200EE))
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Tombol Edit
-        EditButton(isEditing = isEditing) {
-            isEditing = !isEditing
+            // Tombol Edit
+            EditButton(isEditing = isEditing) {
+                isEditing = !isEditing
+            }
         }
-    }
         Spacer(modifier = Modifier.height(16.dp))
 
         // Barang List
